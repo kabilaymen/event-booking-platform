@@ -1,0 +1,11 @@
+{
+  "name": "@event-platform/shared",
+  "version": "1.0.0",
+  "description": "Composants partagés pour la plateforme d'événements",
+  "main": "index.js",
+  "dependencies": {
+    "joi": "^17.9.2",
+    "winston": "^3.10.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

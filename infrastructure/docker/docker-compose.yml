@@ -1,0 +1,210 @@
+# docker-compose.yml (Compose V2, version field deprecated)
+# Assure-toi que Docker Desktop est démarré en mode Linux Containers
+
+services:
+  # API Gateway / Load Balancer
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - user-service
+      - event-service
+      - booking-service
+      - payment-service
+      - streaming-service
+      - notification-service
+    networks:
+      - event-platform
+
+  # Microservices core
+  user-service:
+    build: ../../services/user-service
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env
+    environment:
+      - SERVICE_NAME=user-service
+      - PORT=3001
+      - MONGODB_URI=mongodb://mongodb:27017/users
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - event-platform
+
+  event-service:
+    build: ../../services/event-service
+    ports:
+      - "3002:3002"
+    env_file:
+      - .env
+    environment:
+      - SERVICE_NAME=event-service
+      - PORT=3002
+      - MONGODB_URI=mongodb://mongodb:27017/events
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - event-platform
+
+  booking-service:
+    build: ../../services/booking-service
+    ports:
+      - "3003:3003"
+    env_file:
+      - .env
+    environment:
+      - SERVICE_NAME=booking-service
+      - PORT=3003
+      - MONGODB_URI=mongodb://mongodb:27017/bookings
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - event-platform
+
+  payment-service:
+    build: ../../services/payment-service
+    ports:
+      - "3004:3004"
+    env_file:
+      - .env
+    environment:
+      - SERVICE_NAME=payment-service
+      - PORT=3004
+      - MONGODB_URI=mongodb://mongodb:27017/payments
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - event-platform
+
+  streaming-service:
+    build: ../../services/streaming-service
+    ports:
+      - "3005:3005"
+    env_file:
+      - .env
+    environment:
+      - SERVICE_NAME=streaming-service
+      - PORT=3005
+      - MONGODB_URI=mongodb://mongodb:27017/streaming
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - event-platform
+
+  notification-service:
+    build: ../../services/notification-service
+    ports:
+      - "3006:3006"
+    env_file:
+      - .env
+    environment:
+      - SERVICE_NAME=notification-service
+      - PORT=3006
+      - MONGODB_URI=mongodb://mongodb:27017/notifications
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - event-platform
+
+  # Databases & cache
+  mongodb:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=eventplatform
+    networks:
+      - event-platform
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - event-platform
+
+  # Zookeeper (session store for Kafka)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper
+    container_name: event-platform-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_INIT_LIMIT: 5
+      ZOOKEEPER_SYNC_LIMIT: 2
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
+    networks:
+      - event-platform
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo 'ruok' | nc localhost 2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Kafka broker
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: kafka
+    container_name: event-platform-kafka
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_DELETE_TOPIC_ENABLE: 'true'
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    networks:
+      - event-platform
+    healthcheck:
+      test: ["CMD", "bash", "-c", "unset JMX_PORT; kafka-topics --bootstrap-server kafka:29092 --list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  mongodb_data:
+  redis_data:
+  zookeeper_data:
+  zookeeper_log:
+  kafka_data:
+
+networks:
+  event-platform:
+    driver: bridge

@@ -1,0 +1,12 @@
+{
+    "name": "integration-tests",
+    "version": "1.0.0",
+    "scripts": {
+        "test": "jest"
+    },
+    "devDependencies": {
+        "jest": "^29.6.4",
+        "supertest": "^6.3.3",
+        "axios": "^1.5.0"
+    }
+}
