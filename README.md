@@ -275,6 +275,3 @@ event-platform/
 Cette architecture en microservices répond aux exigences critiques du projet tout en offrant la flexibilité nécessaire pour la croissance future. La séparation claire des responsabilités, combinée aux patterns modernes de développement, garantit une solution robuste, sécurisée et scalable pour la plateforme de réservation d'événements.
 
 L'approche modulaire permet une mise sur le marché rapide avec un développement incrémental, tout en adressant les préoccupations de sécurité issues des antécédents juridiques de l'entreprise.
-
->Proposer une implémentation de l’architecture proposée avec un langage/framework
-web de votre choix. (Créer seulement la structure du projet : les composants)
